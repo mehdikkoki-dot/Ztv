@@ -108,7 +108,3 @@ public struct ExtensionsView: View {
         }
     }
 }
-
-private extension Color {
-    static let emeraldGreen = Color(red: 52/255, green: 199/255, blue: 89/255)
-}
