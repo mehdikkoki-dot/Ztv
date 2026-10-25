@@ -11,7 +11,7 @@ public class JSRuntime {
     }
     
     public func setupEnvironment() {
-        let ctx = JSContext() ?? JSContext()
+        guard let ctx = JSContext() else { return }
         self.context = ctx
         
         // Exception handler
