@@ -1,105 +1,118 @@
 import Foundation
 import JavaScriptCore
-import CommonCrypto
 
-/// Native JavaScriptCore Execution Engine for CloudStream-like Extensions on iOS
+/// High-Performance Native JavaScriptCore Runner for CloudiOS Extensions (mehdikkoki-dot/T)
 public class JSRuntime {
     public static let shared = JSRuntime()
-    private var context: JSContext
+    private var context: JSContext?
     
     private init() {
-        self.context = JSContext()
         setupEnvironment()
     }
     
-    private func setupEnvironment() {
-        // Handle JS Exceptions
-        context.exceptionHandler = { context, exception in
-            if let exception = exception {
-                print("⚡ [JSRuntime Error]: \(exception.toString() ?? "Unknown error")")
+    public func setupEnvironment() {
+        let ctx = JSContext() ?? JSContext()
+        self.context = ctx
+        
+        // Exception handler
+        ctx.exceptionHandler = { context, exception in
+            if let exc = exception {
+                print("⚡ [JSRuntime Error]: \(exc.toString() ?? "")")
             }
         }
         
-        // Polyfill console.log
-        let consoleLog: @convention(block) (String) -> Void = { message in
-            print("📜 [JS Console]: \(message)")
+        // Console Polyfill
+        let consoleLog: @convention(block) (String) -> Void = { msg in
+            print("📜 [CloudiOS JS]: \(msg)")
         }
-        context.setObject(unsafeBitCast(consoleLog, to: AnyObject.self), forKeyedSubscript: "_nativeLog" as NSString)
-        context.evaluateScript("""
+        ctx.setObject(unsafeBitCast(consoleLog, to: AnyObject.self), forKeyedSubscript: "_nativeLog" as NSString)
+        ctx.evaluateScript("""
             var console = {
                 log: function(msg) { _nativeLog(typeof msg === 'object' ? JSON.stringify(msg) : String(msg)); },
                 error: function(msg) { _nativeLog('[ERROR] ' + (typeof msg === 'object' ? JSON.stringify(msg) : String(msg))); }
             };
         """)
         
-        // Polyfill base64 decode/encode (atob / btoa)
-        let atob: @convention(block) (String) -> String = { encoded in
-            guard let data = Data(base64Encoded: encoded) else { return "" }
-            return String(data: data, encoding: .utf8) ?? ""
-        }
-        let btoa: @convention(block) (String) -> String = { str in
-            return Data(str.utf8).base64EncodedString()
-        }
-        context.setObject(unsafeBitCast(atob, to: AnyObject.self), forKeyedSubscript: "atob" as NSString)
-        context.setObject(unsafeBitCast(btoa, to: AnyObject.self), forKeyedSubscript: "btoa" as NSString)
-        
-        // Native AES Decryptor Bridge (Used by video host extractors)
-        let decryptAES: @convention(block) (String, String, String) -> String = { ciphertext, keyStr, ivStr in
-            guard let cipherData = Data(base64Encoded: ciphertext),
-                  let keyData = keyStr.data(using: .utf8),
-                  let ivData = ivStr.data(using: .utf8) else {
+        // Crucial Host Function: httpGet(url) required by all CloudiOS plugins
+        let httpGet: @convention(block) (String) -> String = { urlString in
+            guard let url = URL(string: urlString.trimmingCharacters(in: .whitespacesAndNewlines)) else {
                 return ""
             }
+            var request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 15)
+            request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
+            request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
             
-            var decryptedData = Data(count: cipherData.count + kCCBlockSizeAES128)
-            var numBytesDecrypted: size_t = 0
+            let semaphore = DispatchSemaphore(value: 0)
+            var result = ""
             
-            let status = cipherData.withUnsafeBytes { cipherBytes in
-                decryptedData.withUnsafeMutableBytes { decBytes in
-                    keyData.withUnsafeBytes { keyBytes in
-                        ivData.withUnsafeBytes { ivBytes in
-                            CCCrypt(
-                                CCOperation(kCCDecrypt),
-                                CCAlgorithm(kCCAlgorithmAES),
-                                CCOptions(kCCOptionPKCS7Padding),
-                                keyBytes.baseAddress, kCCKeySizeAES256,
-                                ivBytes.baseAddress,
-                                cipherBytes.baseAddress, cipherData.count,
-                                decBytes.baseAddress, decBytes.count,
-                                &numBytesDecrypted
-                            )
-                        }
-                    }
+            let task = URLSession.shared.dataTask(with: request) { data, _, _ in
+                if let data = data, let str = String(data: data, encoding: .utf8) {
+                    result = str
                 }
+                semaphore.signal()
             }
-            
-            guard status == kCCSuccess else { return "" }
-            decryptedData.removeSubrange(numBytesDecrypted..<decryptedData.count)
-            return String(data: decryptedData, encoding: .utf8) ?? ""
+            task.resume()
+            _ = semaphore.wait(timeout: .now() + 15)
+            return result
         }
-        context.setObject(unsafeBitCast(decryptAES, to: AnyObject.self), forKeyedSubscript: "_nativeDecryptAES" as NSString)
+        ctx.setObject(unsafeBitCast(httpGet, to: AnyObject.self), forKeyedSubscript: "httpGet" as NSString)
     }
     
-    /// Synchronous / Async HTTP fetch bridge
-    public func fetchUrl(urlString: String, headers: [String: String]? = nil) async throws -> String {
-        guard let url = URL(string: urlString) else {
-            throw URLError(.badURL)
-        }
-        var request = URLRequest(url: url)
-        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
-        headers?.forEach { request.setValue($1, forHTTPHeaderField: $0) }
-        
-        let (data, _) = try await URLSession.shared.data(for: request)
-        return String(data: data, encoding: .utf8) ?? ""
+    /// Loads a CloudiOS JavaScript plugin into the execution context
+    public func loadPlugin(code: String) {
+        setupEnvironment()
+        context?.evaluateScript(code)
     }
     
-    /// Execute plugin script and return extracted streams as JSON
-    public func executeProvider(scriptContent: String, functionName: String, argument: String) -> String? {
-        context.evaluateScript(scriptContent)
-        if let fn = context.objectForKeyedSubscript(functionName), !fn.isUndefined {
-            let result = fn.call(withArguments: [argument])
-            return result?.toString()
+    /// Calls `getMainPage()` on the loaded plugin
+    public func getMainPage() -> [PluginSection] {
+        guard let ctx = context, let fn = ctx.objectForKeyedSubscript("getMainPage"), !fn.isUndefined else {
+            return []
         }
-        return nil
+        let res = fn.call(withArguments: [])
+        guard let jsonString = ctx.objectForKeyedSubscript("JSON")?.objectForKeyedSubscript("stringify")?.call(withArguments: [res as Any])?.toString(),
+              let data = jsonString.data(using: .utf8) else {
+            return []
+        }
+        return (try? JSONDecoder().decode([PluginSection].self, from: data)) ?? []
+    }
+    
+    /// Calls `search(query)` on the loaded plugin
+    public func search(query: String) -> [PluginCardItem] {
+        guard let ctx = context, let fn = ctx.objectForKeyedSubscript("search"), !fn.isUndefined else {
+            return []
+        }
+        let res = fn.call(withArguments: [query])
+        guard let jsonString = ctx.objectForKeyedSubscript("JSON")?.objectForKeyedSubscript("stringify")?.call(withArguments: [res as Any])?.toString(),
+              let data = jsonString.data(using: .utf8) else {
+            return []
+        }
+        return (try? JSONDecoder().decode([PluginCardItem].self, from: data)) ?? []
+    }
+    
+    /// Calls `load(url)` to get details and episodes
+    public func load(url: String) -> PluginMediaDetail? {
+        guard let ctx = context, let fn = ctx.objectForKeyedSubscript("load"), !fn.isUndefined else {
+            return nil
+        }
+        let res = fn.call(withArguments: [url])
+        guard let jsonString = ctx.objectForKeyedSubscript("JSON")?.objectForKeyedSubscript("stringify")?.call(withArguments: [res as Any])?.toString(),
+              let data = jsonString.data(using: .utf8) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(PluginMediaDetail.self, from: data)
+    }
+    
+    /// Calls `loadLinks(url)` to get stream links
+    public func loadLinks(url: String) -> [PluginStreamLink] {
+        guard let ctx = context, let fn = ctx.objectForKeyedSubscript("loadLinks"), !fn.isUndefined else {
+            return []
+        }
+        let res = fn.call(withArguments: [url])
+        guard let jsonString = ctx.objectForKeyedSubscript("JSON")?.objectForKeyedSubscript("stringify")?.call(withArguments: [res as Any])?.toString(),
+              let data = jsonString.data(using: .utf8) else {
+            return []
+        }
+        return (try? JSONDecoder().decode([PluginStreamLink].self, from: data)) ?? []
     }
 }

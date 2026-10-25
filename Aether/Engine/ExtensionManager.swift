@@ -4,16 +4,16 @@ import Combine
 public class ExtensionManager: ObservableObject {
     public static let shared = ExtensionManager()
     
-    @Published public var installedExtensions: [ExtensionManifest] = []
-    @Published public var availableExtensions: [ExtensionManifest] = []
-    @Published public var currentRepoUrl: String = "https://raw.githubusercontent.com/ztv/extensions/main/repo.json"
-    @Published public var isLoading: Bool = false
-    @Published public var lastLog: String = ""
+    @Published public var availablePlugins: [CloudIOSPlugin] = []
+    @Published public var activePluginName: String = "Akwam"
+    @Published public var currentSections: [PluginSection] = []
+    @Published public var isLoadingFeed: Bool = false
+    @Published public var currentRepoUrl: String = "https://raw.githubusercontent.com/mehdikkoki-dot/T/main/repo.json"
     
     private let fileManager = FileManager.default
-    private var extensionsDirectory: URL {
+    private var pluginsDirectory: URL {
         let paths = fileManager.urls(for: .documentDirectory, in: .userDomainMask)
-        let dir = paths[0].appendingPathComponent("Extensions", isDirectory: true)
+        let dir = paths[0].appendingPathComponent("Plugins", isDirectory: true)
         if !fileManager.fileExists(atPath: dir.path) {
             try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
         }
@@ -21,96 +21,73 @@ public class ExtensionManager: ObservableObject {
     }
     
     public init() {
-        loadMockInitialData()
+        bootstrapDefaultPlugins()
     }
     
-    private func loadMockInitialData() {
-        // Pre-loaded providers for instant demonstration
-        let sampleManifests = [
-            ExtensionManifest(
-                id: "com.aether.akwam",
-                name: "Akwam (أكوام)",
-                version: "2.4.0",
-                author: "CloudStream Community",
-                description: "أكبر مكتبة أفلام ومسلسلات عربية وأجنبية مترجمة ومدبلجة بجودة 4K و 1080p.",
-                iconUrl: "https://akwam.to/favicon.ico",
-                baseUrl: "https://akwam.to",
-                scriptUrl: "https://raw.githubusercontent.com/ztv/extensions/main/providers/akwam.js",
-                isInstalled: true,
-                isEnabled: true
-            ),
-            ExtensionManifest(
-                id: "com.aether.faselhd",
-                name: "FaselHD (فاصل إعلاني)",
-                version: "1.8.2",
-                author: "CloudStream Community",
-                description: "بث مباشر وسريع للأفلام الحصرية والأنمي مع دعم متعدد لسيرفرات التحميل.",
-                iconUrl: "https://www.faselhd.club/favicon.ico",
-                baseUrl: "https://www.faselhd.club",
-                scriptUrl: "https://raw.githubusercontent.com/ztv/extensions/main/providers/faselhd.js",
-                isInstalled: true,
-                isEnabled: true
-            ),
-            ExtensionManifest(
-                id: "com.aether.mycima",
-                name: "MyCima (ماي سيما)",
-                version: "3.1.0",
-                author: "DevTeam",
-                description: "محتوى شامل للأفلام الوثائقية والمسلسلات العربية والتركية.",
-                iconUrl: "https://mycima.tv/favicon.ico",
-                baseUrl: "https://mycima.tv",
-                scriptUrl: "https://raw.githubusercontent.com/ztv/extensions/main/providers/mycima.js",
-                isInstalled: false,
-                isEnabled: false
-            )
-        ]
-        self.installedExtensions = sampleManifests.filter { $0.isInstalled == true }
-        self.availableExtensions = sampleManifests
-    }
-    
-    /// Fetch and update the repository index from GitHub
-    public func fetchRepository(from urlString: String) async {
-        guard let url = URL(string: urlString) else { return }
-        
-        await MainActor.run { self.isLoading = true }
-        
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let decoder = JSONDecoder()
-            let repo = try decoder.decode(RepoManifest.self, from: data)
+    /// Bootstraps Akwam and FaselHD plugins from bundle or fallback
+    private func bootstrapDefaultPlugins() {
+        Task {
+            // First check if repo is available
+            await self.fetchRepo(from: self.currentRepoUrl)
             
-            await MainActor.run {
-                self.availableExtensions = repo.extensions
-                self.isLoading = false
-                self.lastLog = "✔ تم جلب \(repo.extensions.count) إضافة بنجاح من المستودع."
-            }
-        } catch {
-            await MainActor.run {
-                self.isLoading = false
-                self.lastLog = "⚠️ تعذر جلب المستودع: \(error.localizedDescription)"
-            }
+            // Load Akwam by default
+            await self.activatePlugin(named: "Akwam")
         }
     }
     
-    /// Install an extension dynamically
-    public func installExtension(_ manifest: ExtensionManifest) async {
-        guard let scriptUrl = URL(string: manifest.scriptUrl) else { return }
+    /// Fetches the repo list from mehdikkoki-dot/T/main/repo.json
+    public func fetchRepo(from urlString: String) async {
+        guard let url = URL(string: urlString) else { return }
         do {
-            let (data, _) = try await URLSession.shared.data(from: scriptUrl)
-            let localFile = extensionsDirectory.appendingPathComponent("\(manifest.id).js")
-            try data.write(to: localFile)
-            
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let plugins = try JSONDecoder().decode([CloudIOSPlugin].self, from: data)
             await MainActor.run {
-                var updated = manifest
-                updated.isInstalled = true
-                updated.isEnabled = true
-                self.installedExtensions.append(updated)
-                self.lastLog = "✔ تم تثبيت إضافة \(manifest.name) بنجاح."
+                self.availablePlugins = plugins
             }
         } catch {
-            await MainActor.run {
-                self.lastLog = "⚠️ فشل تثبيت \(manifest.name): \(error.localizedDescription)"
+            print("⚠️ [ExtensionManager] Failed to fetch repo.json: \(error)")
+        }
+    }
+    
+    /// Activates a plugin by downloading or reading its JS file and refreshing the feed
+    public func activatePlugin(named name: String) async {
+        await MainActor.run {
+            self.isLoadingFeed = true
+            self.activePluginName = name
+        }
+        
+        var jsCode = ""
+        
+        // 1. Try local cached file
+        let localFile = pluginsDirectory.appendingPathComponent("\(name).js")
+        if let localData = try? Data(contentsOf: localFile), let content = String(data: localData, encoding: .utf8) {
+            jsCode = content
+        } else if let bundleUrl = Bundle.main.url(forResource: name, withExtension: "js", subdirectory: "Plugins"),
+                  let bundleData = try? Data(contentsOf: bundleUrl),
+                  let content = String(data: bundleData, encoding: .utf8) {
+            jsCode = content
+        } else {
+            // 2. Fetch directly from mehdikkoki-dot/T repository
+            let scriptUrl = "https://raw.githubusercontent.com/mehdikkoki-dot/T/main/\(name).js"
+            if let url = URL(string: scriptUrl), let (data, _) = try? await URLSession.shared.data(from: url),
+               let content = String(data: data, encoding: .utf8) {
+                jsCode = content
+                try? data.write(to: localFile)
             }
+        }
+        
+        guard !jsCode.isEmpty else {
+            await MainActor.run { self.isLoadingFeed = false }
+            return
+        }
+        
+        // 3. Load script into JSRuntime and fetch live sections
+        JSRuntime.shared.loadPlugin(code: jsCode)
+        let sections = JSRuntime.shared.getMainPage()
+        
+        await MainActor.run {
+            self.currentSections = sections
+            self.isLoadingFeed = false
         }
     }
 }
