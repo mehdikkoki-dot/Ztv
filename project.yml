@@ -34,3 +34,4 @@ targets:
       - framework: JavaScriptCore.framework
       - framework: AVKit.framework
       - framework: AVFoundation.framework
+      - framework: WebKit.framework

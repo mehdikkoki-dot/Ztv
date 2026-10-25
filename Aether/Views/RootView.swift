@@ -22,13 +22,19 @@ public struct RootView: View {
                 }
                 .tag(0)
             
-            ExtensionsView()
+            UnifiedSearchView()
                 .tabItem {
-                    Label("الإضافات", systemImage: "puzzlepiece.extension.fill")
+                    Label("البحث الموحد", systemImage: "magnifyingglass")
                 }
                 .tag(1)
+            
+            ExtensionsView()
+                .tabItem {
+                    Label("الإضافات (45)", systemImage: "puzzlepiece.extension.fill")
+                }
+                .tag(2)
         }
-        .accentColor(.white)
+        .accentColor(.red)
         .preferredColorScheme(.dark)
     }
 }

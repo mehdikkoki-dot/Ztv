@@ -2,36 +2,49 @@ import SwiftUI
 import AVKit
 
 public struct PlayerView: View {
-    public let stream: PluginStreamLink
+    public let stream: ResolvedStream
     public let title: String
     @Environment(\.dismiss) var dismiss
     
-    @State private var player: AVPlayer?
+    @State private var avPlayer: AVPlayer?
+    @State private var isPlaying = true
     
     public var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            if let player = player {
-                VideoPlayer(player: player)
+            // Dual Engine Playback
+            if stream.streamType == .cleanEmbed {
+                CleanWebPlayerView(urlString: stream.url)
                     .ignoresSafeArea()
             } else {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                if let player = avPlayer {
+                    VideoPlayer(player: player)
+                        .ignoresSafeArea()
+                } else {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.2)
+                        Text("جاري تشغيل البث المباشر...")
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                }
             }
             
             // HUD Top Bar
             VStack {
-                HStack {
+                HStack(alignment: .center) {
                     Button(action: {
-                        player?.pause()
+                        avPlayer?.pause()
                         dismiss()
                     }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .bold))
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
-                            .frame(width: 44, height: 44)
-                            .appleGlass(cornerRadius: 22)
+                            .frame(width: 40, height: 40)
+                            .appleGlass(cornerRadius: 20)
                     }
                     .appleTactile()
                     
@@ -40,30 +53,37 @@ public struct PlayerView: View {
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
                             .lineLimit(1)
-                        Text(stream.name)
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundColor(.emeraldGreen)
+                        
+                        HStack(spacing: 6) {
+                            Text(stream.providerName)
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.emeraldGreen)
+                            Text("• \(stream.quality)")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
                     }
                     .padding(.leading, 8)
                     
                     Spacer()
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 16)
+                .padding(.top, 20)
                 
                 Spacer()
             }
         }
         .onAppear {
-            setupPlayer()
+            setupNativePlayer()
         }
         .onDisappear {
-            player?.pause()
-            player = nil
+            avPlayer?.pause()
+            avPlayer = nil
         }
     }
     
-    private func setupPlayer() {
+    private func setupNativePlayer() {
+        guard stream.streamType != .cleanEmbed else { return }
         guard let url = URL(string: stream.url) else { return }
         
         var options: [String: Any] = [:]
@@ -73,9 +93,9 @@ public struct PlayerView: View {
         
         let asset = AVURLAsset(url: url, options: options)
         let playerItem = AVPlayerItem(asset: asset)
-        let avPlayer = AVPlayer(playerItem: playerItem)
-        self.player = avPlayer
-        avPlayer.play()
+        let player = AVPlayer(playerItem: playerItem)
+        self.avPlayer = player
+        player.play()
     }
 }
 
