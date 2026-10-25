@@ -1,0 +1,27 @@
+{
+  "repositoryName": "Aether Official Extensions",
+  "description": "مستودع إضافات ومواقع البث الرسمية لتطبيق Aether لنظام iOS",
+  "version": 1,
+  "extensions": [
+    {
+      "id": "com.aether.akwam",
+      "name": "Akwam (أكوام)",
+      "version": "2.4.0",
+      "author": "Aether Community",
+      "description": "أكبر مكتبة أفلام ومسلسلات عربية وأجنبية مترجمة بجودة 4K و 1080p.",
+      "iconUrl": "https://akwam.to/favicon.ico",
+      "baseUrl": "https://akwam.to",
+      "scriptUrl": "https://raw.githubusercontent.com/ztv/extensions/main/providers/akwam.js"
+    },
+    {
+      "id": "com.aether.faselhd",
+      "name": "FaselHD (فاصل إعلاني)",
+      "version": "1.8.2",
+      "author": "Aether Community",
+      "description": "بث مباشر وسريع للأفلام والمسلسلات الحصرية والأنمي مع سيرفرات متعددة.",
+      "iconUrl": "https://www.faselhd.club/favicon.ico",
+      "baseUrl": "https://www.faselhd.club",
+      "scriptUrl": "https://raw.githubusercontent.com/ztv/extensions/main/providers/faselhd.js"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+name: Aether
+options:
+  bundleIdPrefix: com.aether.stream
+  deploymentTarget:
+    iOS: 16.0
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1,2" # iPhone & iPad
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    ENABLE_BITCODE: false
+    CODE_SIGNING_ALLOWED: false
+    CODE_SIGNING_REQUIRED: false
+    CODE_SIGN_IDENTITY: ""
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  Aether:
+    type: application
+    platform: iOS
+    sources:
+      - path: Aether
+    settings:
+      base:
+        PRODUCT_NAME: "Aether"
+        PRODUCT_BUNDLE_IDENTIFIER: "com.aether.stream"
+        INFOPLIST_FILE: "Aether/Resources/Info.plist"
+        ASSETCATALOG_COMPILER_APPICON_NAME: "AppIcon"
+    frameworks:
+      - framework: JavaScriptCore.framework
+      - framework: AVKit.framework
+      - framework: AVFoundation.framework
