@@ -1,13 +1,13 @@
 import Foundation
 
 /// Netflix-Style Multi-Source Stream Aggregator (Inspired by CloudStream 3)
-/// Automatically scans all active providers in the background, extracts streams & embed players
+/// Automatically scans providers in the background, extracts streams & embed players
 public class MultiSourceResolver {
     public static let shared = MultiSourceResolver()
     
     private init() {}
     
-    /// Searches across all providers in parallel and resolves working streams
+    /// Searches across providers and resolves working streams
     public func resolveStreams(for title: String, episodeNumber: Int? = nil) async -> [ResolvedStream] {
         var allStreams: [ResolvedStream] = []
         
@@ -16,27 +16,22 @@ public class MultiSourceResolver {
             .replacingOccurrences(of: ":.*", with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         
-        let providersToSearch = ["Akwam", "Faselhd", "MyCimaProvider", "Shahid4u", "Wecima"]
+        let providersToSearch = ["Akwam", "Faselhd", "MyCimaProvider", "Shahid4u"]
         
-        // 2. Perform parallel background search across providers
-        await withTaskGroup(of: [ResolvedStream].self) { group in
-            for provider in providersToSearch {
-                group.addTask {
-                    return await self.scrapeProvider(named: provider, query: cleanQuery, episodeNumber: episodeNumber)
-                }
-            }
-            
-            for await streams in group {
-                allStreams.append(contentsOf: streams)
+        // 2. Sequential safe async search across providers
+        for provider in providersToSearch {
+            let streams = await self.scrapeProvider(named: provider, query: cleanQuery, episodeNumber: episodeNumber)
+            allStreams.append(contentsOf: streams)
+            if allStreams.count >= 2 {
+                break
             }
         }
         
-        // 3. If live scraping did not yield streams (e.g. site down or anti-bot), generate high-availability clean web-embed fallbacks
+        // 3. Fallbacks so video ALWAYS plays
         if allStreams.isEmpty {
             allStreams.append(contentsOf: generateEmbedFallbacks(for: cleanQuery, episodeNumber: episodeNumber))
         }
         
-        // Sort streams: Direct streams first, then clean embeds with fast ping
         return allStreams.sorted { s1, s2 in
             if s1.streamType == .directHLS && s2.streamType != .directHLS { return true }
             if s1.streamType == .directMP4 && s2.streamType == .cleanEmbed { return true }
@@ -48,17 +43,14 @@ public class MultiSourceResolver {
     private func scrapeProvider(named providerName: String, query: String, episodeNumber: Int?) async -> [ResolvedStream] {
         var streams: [ResolvedStream] = []
         
-        // Activate plugin and perform search
         await ExtensionManager.shared.activatePlugin(named: providerName)
         let searchResults = JSRuntime.shared.search(query: query)
         
         guard let firstMatch = searchResults.first else { return [] }
         
-        // Load details
         if let detail = JSRuntime.shared.load(url: firstMatch.url) {
             var targetUrl = firstMatch.url
             
-            // If series and episode requested, pick corresponding episode url
             if let epNum = episodeNumber, let episodes = detail.episodes, !episodes.isEmpty {
                 if let ep = episodes.first(where: { $0.episode == epNum }) {
                     targetUrl = ep.url
@@ -67,7 +59,6 @@ public class MultiSourceResolver {
                 }
             }
             
-            // Load links from provider
             let links = JSRuntime.shared.loadLinks(url: targetUrl)
             for link in links {
                 let isHls = link.url.contains(".m3u8")
@@ -89,10 +80,8 @@ public class MultiSourceResolver {
         return streams
     }
     
-    /// Generates ad-blocked embed players so video ALWAYS plays without ever failing
     private func generateEmbedFallbacks(for title: String, episodeNumber: Int?) -> [ResolvedStream] {
         let encoded = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let epSuffix = episodeNumber != nil ? " الحلقة \(episodeNumber!)" : ""
         
         return [
             ResolvedStream(

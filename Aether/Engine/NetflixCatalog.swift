@@ -17,7 +17,7 @@ public struct NetflixCatalog {
     )
     
     public static let allItems: [UnifiedMedia] = [
-        featuredItem,
+        NetflixCatalog.featuredItem,
         UnifiedMedia(
             id: "deadpool_wolverine",
             title: "Deadpool & Wolverine",
