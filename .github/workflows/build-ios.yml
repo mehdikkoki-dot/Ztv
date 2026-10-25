@@ -3,14 +3,10 @@ name: Build iOS IPA
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: 'Release Tag (e.g. v1.0.0)'
-        required: false
-        default: 'v1.0.0'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -18,11 +14,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Set up Xcode
-        uses: maxim-lobovik/setup-xcode@v1
-        with:
-          xcode-version: '15.4'
 
       - name: Install XcodeGen
         run: |
@@ -32,10 +23,10 @@ jobs:
         run: |
           xcodegen generate
 
-      - name: Build App for iOS (Unsigned)
+      - name: Build iOS App (Ad-Hoc / Unsigned for Sideloading)
         run: |
-          xcodebuild -project Aether.xcodeproj \
-            -scheme Aether \
+          xcodebuild -project Ztv.xcodeproj \
+            -scheme Ztv \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath ./build \
@@ -44,28 +35,33 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
-      - name: Create IPA Package
+      - name: Package into IPA
         run: |
           mkdir -p Payload
-          cp -r ./build/Build/Products/Release-iphoneos/Aether.app Payload/
-          zip -r Aether-Unsigned.ipa Payload
+          cp -r ./build/Build/Products/Release-iphoneos/Ztv.app Payload/
+          zip -r -y Ztv.ipa Payload
           rm -rf Payload
 
-      - name: Upload IPA Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Aether-iOS-IPA
-          path: Aether-Unsigned.ipa
-          retention-days: 14
+          name: Ztv-IPA
+          path: Ztv.ipa
+          retention-days: 30
 
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+      - name: Publish Direct Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.release_tag || github.ref_name }}
-          name: Release ${{ github.event.inputs.release_tag || github.ref_name }}
-          files: Aether-Unsigned.ipa
-          draft: false
-          prerelease: false
+          tag_name: "v1.0.0"
+          name: "Ztv iOS Release v1.0.0 (Direct IPA)"
+          body: |
+            ### 📱 Ztv iOS IPA (Ready for Direct Signing)
+            
+            ملف الـ IPA المباشر جاهز الآن للتحميل والتوقيع بشهادتك الخاصة:
+            * **اسم التطبيق:** Ztv
+            * **طريقة التثبيت:** قم بتحميل `Ztv.ipa` مباشرة إلى هاتفك ووقعه عبر (ESign / Scarlet / GBox / Feather / TrollStore / AltStore).
+            * **المعمارية:** SwiftUI + Apple JavaScriptCore Scraper Engine
+          files: Ztv.ipa
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
