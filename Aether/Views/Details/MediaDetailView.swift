@@ -219,7 +219,7 @@ public struct MediaDetailView: View {
         isResolvingStreams = true
         Task {
             let streams = await MultiSourceResolver.shared.resolveStreams(
-                for: media.title,
+                for: media,
                 episodeNumber: media.isSeries ? selectedEpisodeNumber : nil
             )
             await MainActor.run {

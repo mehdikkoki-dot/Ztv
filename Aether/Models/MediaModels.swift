@@ -114,8 +114,25 @@ public struct UnifiedMedia: Identifiable, Codable, Hashable {
     public let seasonsCount: Int?
     public let category: String
     public let searchKeywords: [String]
+    public let tmdbId: String?
+    public let imdbId: String?
     
-    public init(id: String, title: String, originalTitle: String? = nil, posterUrl: String, backdropUrl: String, rating: Double, year: Int, overview: String, isSeries: Bool, seasonsCount: Int? = 1, category: String, searchKeywords: [String] = []) {
+    public init(
+        id: String,
+        title: String,
+        originalTitle: String? = nil,
+        posterUrl: String,
+        backdropUrl: String,
+        rating: Double,
+        year: Int,
+        overview: String,
+        isSeries: Bool,
+        seasonsCount: Int? = 1,
+        category: String,
+        searchKeywords: [String] = [],
+        tmdbId: String? = nil,
+        imdbId: String? = nil
+    ) {
         self.id = id
         self.title = title
         self.originalTitle = originalTitle
@@ -128,6 +145,8 @@ public struct UnifiedMedia: Identifiable, Codable, Hashable {
         self.seasonsCount = seasonsCount
         self.category = category
         self.searchKeywords = searchKeywords.isEmpty ? [title, originalTitle ?? ""].filter { !$0.isEmpty } : searchKeywords
+        self.tmdbId = tmdbId
+        self.imdbId = imdbId
     }
 }
 
@@ -150,7 +169,7 @@ public struct UnifiedEpisode: Identifiable, Codable, Hashable {
 public enum StreamType: String, Codable {
     case directHLS    // Direct .m3u8 stream
     case directMP4    // Direct .mp4 video
-    case cleanEmbed   // Sandboxed Ad-Blocked Web Player (Dood, Streamtape, Fasel Player)
+    case cleanEmbed   // Sandboxed Ad-Blocked Web Player (AutoEmbed, MultiEmbed, VidSrc, Dood, Streamwish)
 }
 
 public struct ResolvedStream: Identifiable, Codable, Hashable {
@@ -164,7 +183,7 @@ public struct ResolvedStream: Identifiable, Codable, Hashable {
     public let pingMs: Int?
     
     public init(serverName: String, providerName: String, quality: String, url: String, streamType: StreamType, headers: [String: String]? = nil, pingMs: Int? = nil) {
-        self.id = "\(providerName)-\(serverName)-\(url.hashValue)"
+        self.id = "\(providerName)-\(serverName)-\(abs(url.hashValue))"
         self.serverName = serverName
         self.providerName = providerName
         self.quality = quality

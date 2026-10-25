@@ -33,14 +33,55 @@ public class JSRuntime {
             };
         """)
         
-        // Crucial Host Function: httpGet(url) required by all CloudiOS plugins
-        let httpGet: @convention(block) (String) -> String = { urlString in
+        // Dynamic Host Function: httpGet(url, headers) with automatic redirect following
+        let httpGet: @convention(block) (String, JSValue?) -> String = { urlString, headersVal in
             guard let url = URL(string: urlString.trimmingCharacters(in: .whitespacesAndNewlines)) else {
                 return ""
             }
-            var request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 15)
+            var request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 12)
             request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
             request.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
+            request.setValue("gzip, deflate, br", forHTTPHeaderField: "Accept-Encoding")
+            
+            if let headersVal = headersVal, !headersVal.isUndefined, !headersVal.isNull, let dict = headersVal.toDictionary() as? [String: String] {
+                for (k, v) in dict {
+                    request.setValue(v, forHTTPHeaderField: k)
+                }
+            }
+            
+            let semaphore = DispatchSemaphore(value: 0)
+            var result = ""
+            
+            let task = URLSession.shared.dataTask(with: request) { data, response, _ in
+                if let data = data, let str = String(data: data, encoding: .utf8) {
+                    result = str
+                } else if let data = data, let str = String(data: data, encoding: .ascii) {
+                    result = str
+                }
+                semaphore.signal()
+            }
+            task.resume()
+            _ = semaphore.wait(timeout: .now() + 12)
+            return result
+        }
+        ctx.setObject(unsafeBitCast(httpGet, to: AnyObject.self), forKeyedSubscript: "httpGet" as NSString)
+        
+        // Host Function: httpPost(url, body, headers)
+        let httpPost: @convention(block) (String, String, JSValue?) -> String = { urlString, bodyString, headersVal in
+            guard let url = URL(string: urlString.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+                return ""
+            }
+            var request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 12)
+            request.httpMethod = "POST"
+            request.httpBody = bodyString.data(using: .utf8)
+            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+            request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
+            
+            if let headersVal = headersVal, !headersVal.isUndefined, !headersVal.isNull, let dict = headersVal.toDictionary() as? [String: String] {
+                for (k, v) in dict {
+                    request.setValue(v, forHTTPHeaderField: k)
+                }
+            }
             
             let semaphore = DispatchSemaphore(value: 0)
             var result = ""
@@ -52,10 +93,10 @@ public class JSRuntime {
                 semaphore.signal()
             }
             task.resume()
-            _ = semaphore.wait(timeout: .now() + 15)
+            _ = semaphore.wait(timeout: .now() + 12)
             return result
         }
-        ctx.setObject(unsafeBitCast(httpGet, to: AnyObject.self), forKeyedSubscript: "httpGet" as NSString)
+        ctx.setObject(unsafeBitCast(httpPost, to: AnyObject.self), forKeyedSubscript: "httpPost" as NSString)
     }
     
     /// Loads a CloudiOS JavaScript plugin into the execution context

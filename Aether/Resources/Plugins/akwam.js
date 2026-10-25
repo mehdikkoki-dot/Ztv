@@ -4,7 +4,7 @@
  * Source: https://akwam.ss
  */
 
-var MAIN_URL = "https://akwam.ss";
+var MAIN_URL = "https://ak.sv";
 
 function cleanUrl(url) {
   try {

@@ -13,7 +13,9 @@ public struct NetflixCatalog {
         overview: "يتحد بول أتريديس مع تشاني وشعب الفريمن في حرب انتقامية ضد المتآمرين الذين دمروا عائلته، في مواجهة مصيرية لتحديد مستقبل الكون.",
         isSeries: false,
         category: "الأكثر رواجاً اليوم",
-        searchKeywords: ["Dune", "كثيب", "Dune 2"]
+        searchKeywords: ["Dune", "كثيب", "Dune 2"],
+        tmdbId: "693134",
+        imdbId: "tt15239678"
     )
     
     public static let allItems: [UnifiedMedia] = [
@@ -29,7 +31,9 @@ public struct NetflixCatalog {
             overview: "يعود ديدبول في مغامرة غير مسبوقة مع ولفيرين لتغيير تاريخ عالم مارفل السينمائي بالكامل في إطار مليء بالكوميديا والأكشن الخارق.",
             isSeries: false,
             category: "أحدث أفلام 2024 - 2025",
-            searchKeywords: ["Deadpool", "Wolverine", "ديدبول"]
+            searchKeywords: ["Deadpool", "Wolverine", "ديدبول"],
+            tmdbId: "533535",
+            imdbId: "tt6263850"
         ),
         UnifiedMedia(
             id: "interstellar",
@@ -42,7 +46,9 @@ public struct NetflixCatalog {
             overview: "يقود فريق من رواد الفضاء أهم مهمة في تاريخ البشرية بالسفر عبر ثقب دودي لاكتشاف كوكب صالح للحياة لإنقاذ البشرية من الانقراض.",
             isSeries: false,
             category: "الأكثر رواجاً اليوم",
-            searchKeywords: ["Interstellar", "انترستيلر"]
+            searchKeywords: ["Interstellar", "انترستيلر"],
+            tmdbId: "157336",
+            imdbId: "tt0816692"
         ),
         UnifiedMedia(
             id: "shogun",
@@ -56,7 +62,9 @@ public struct NetflixCatalog {
             isSeries: true,
             seasonsCount: 1,
             category: "أقوى المسلسلات الحصرية",
-            searchKeywords: ["Shogun", "شوجون"]
+            searchKeywords: ["Shogun", "شوجون"],
+            tmdbId: "126308",
+            imdbId: "tt2788316"
         ),
         UnifiedMedia(
             id: "house_of_dragon",
@@ -70,7 +78,9 @@ public struct NetflixCatalog {
             isSeries: true,
             seasonsCount: 2,
             category: "أقوى المسلسلات الحصرية",
-            searchKeywords: ["House of the Dragon", "بيت التنين"]
+            searchKeywords: ["House of the Dragon", "بيت التنين"],
+            tmdbId: "94997",
+            imdbId: "tt11198330"
         ),
         UnifiedMedia(
             id: "assassins_series",
@@ -84,7 +94,9 @@ public struct NetflixCatalog {
             isSeries: true,
             seasonsCount: 1,
             category: "أفلام ومسلسلات عربية",
-            searchKeywords: ["الحشاشين", "حسن الصباح"]
+            searchKeywords: ["الحشاشين", "حسن الصباح"],
+            tmdbId: "248744",
+            imdbId: nil
         ),
         UnifiedMedia(
             id: "welad_rizk_3",
@@ -97,7 +109,9 @@ public struct NetflixCatalog {
             overview: "بعد سنوات من الانفصال، يضطر الإخوة للعودة إلى عالم الجريمة والسرقة في عملية أخيرة هي الأخطر والأكبر في تاريخهم بمشاركة أبطال الملاكمة العالميين.",
             isSeries: false,
             category: "أفلام ومسلسلات عربية",
-            searchKeywords: ["ولاد رزق", "ولاد رزق 3"]
+            searchKeywords: ["ولاد رزق", "ولاد رزق 3"],
+            tmdbId: "1305417",
+            imdbId: nil
         ),
         UnifiedMedia(
             id: "solo_leveling",
@@ -111,7 +125,9 @@ public struct NetflixCatalog {
             isSeries: true,
             seasonsCount: 1,
             category: "أنمي مترجم",
-            searchKeywords: ["Solo Leveling", "سولو ليفلينج"]
+            searchKeywords: ["Solo Leveling", "سولو ليفلينج"],
+            tmdbId: "127532",
+            imdbId: nil
         )
     ]
     
